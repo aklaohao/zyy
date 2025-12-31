@@ -1,0 +1,864 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>2026 Golden Vision - Interactive 3D Experience</title>
+    <style>
+        :root {
+            --gold: #d4af37;
+            --gold-light: #f9d877;
+            --black: #050505;
+            --glass: rgba(20, 20, 20, 0.6);
+        }
+
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: var(--black);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            color: var(--gold);
+            user-select: none;
+        }
+
+        #canvas-container {
+            width: 100vw;
+            height: 100vh;
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 1;
+        }
+
+        /* UI Overlay */
+        #ui-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 10;
+            pointer-events: none;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+
+        /* Loading Screen */
+        #loader {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #000;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+            transition: opacity 1s ease;
+        }
+        .loading-bar-container {
+            width: 200px;
+            height: 2px;
+            background: #333;
+            margin-top: 20px;
+        }
+        .loading-bar {
+            width: 0%;
+            height: 100%;
+            background: var(--gold);
+            transition: width 0.2s;
+            box-shadow: 0 0 10px var(--gold);
+        }
+
+        /* Camera Preview & Controls */
+        #camera-preview {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            width: 160px;
+            height: 120px;
+            background: #000;
+            border: 1px solid var(--gold);
+            border-radius: 8px;
+            overflow: hidden;
+            pointer-events: auto;
+            transform: scaleX(-1); /* Mirror */
+            opacity: 0;
+            transition: opacity 1s;
+        }
+        #webcam {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        #gesture-debug {
+            position: absolute;
+            bottom: 5px;
+            right: 5px;
+            font-size: 12px;
+            color: var(--gold-light);
+            background: rgba(0,0,0,0.7);
+            padding: 2px 5px;
+            transform: scaleX(-1); /* Un-mirror text */
+        }
+
+        /* Controls Area */
+        .controls {
+            padding: 20px;
+            pointer-events: auto;
+        }
+        
+        .btn {
+            background: var(--glass);
+            border: 1px solid var(--gold);
+            color: var(--gold);
+            padding: 10px 20px;
+            font-size: 14px;
+            cursor: pointer;
+            backdrop-filter: blur(10px);
+            transition: all 0.3s;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            border-radius: 4px;
+        }
+        .btn:hover {
+            background: var(--gold);
+            color: var(--black);
+            box-shadow: 0 0 15px var(--gold);
+        }
+
+        #file-input {
+            display: none;
+        }
+
+        /* Status Text */
+        #status-text {
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            text-align: center;
+            text-shadow: 0 0 10px var(--gold);
+            opacity: 0;
+            transition: opacity 0.5s;
+        }
+
+        .instruction-panel {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            background: var(--glass);
+            border-left: 2px solid var(--gold);
+            padding: 15px;
+            color: #ccc;
+            font-size: 12px;
+            line-height: 1.6;
+            backdrop-filter: blur(5px);
+            pointer-events: auto;
+            max-width: 250px;
+            opacity: 0;
+            transition: opacity 1s;
+        }
+        .instruction-panel h4 { margin: 0 0 5px 0; color: var(--gold); }
+    </style>
+    
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/",
+                "@mediapipe/tasks-vision": "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.3/+esm",
+                "@tweenjs/tween.js": "https://unpkg.com/@tweenjs/tween.js@23.1.1/dist/tween.esm.js"
+            }
+        }
+    </script>
+</head>
+<body>
+
+    <div id="canvas-container"></div>
+
+    <div id="loader">
+        <h1 style="letter-spacing: 5px;">LOADING 2026</h1>
+        <div class="loading-bar-container"><div class="loading-bar" id="progress"></div></div>
+        <p id="loading-text" style="font-size: 12px; margin-top: 10px; color: #666;">Initializing Neural Engine...</p>
+    </div>
+
+    <div id="ui-layer">
+        <div class="controls" style="display: flex; justify-content: flex-end;">
+            </div>
+        
+        <div id="status-text">
+            <h2>准备进入 2026</h2>
+        </div>
+
+        <div class="instruction-panel" id="instructions">
+            <h4>手势控制 (Gesture Control)</h4>
+            <ul>
+                <li>✊ <b>握拳:</b> 聚合蛋糕 (Order)</li>
+                <li>🖐 <b>张开:</b> 炸开星云 (Chaos)</li>
+                <li>✋ <b>左右移动:</b> 旋转场景</li>
+                <li>👌 <b>捏合:</b> 查看照片 (Focus)</li>
+            </ul>
+            <div style="margin-top: 10px;">
+                <button class="btn" onclick="document.getElementById('file-input').click()">上传照片加入庆典</button>
+                <input type="file" id="file-input" accept="image/*">
+            </div>
+        </div>
+
+        <div id="camera-preview">
+            <video id="webcam" autoplay playsinline></video>
+            <canvas id="output_canvas" style="position:absolute; left:0; top:0; width:100%; height:100%;"></canvas>
+            <div id="gesture-debug">Detecting...</div>
+        </div>
+    </div>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+        import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+        import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+        import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+        import { FontLoader } from 'three/addons/loaders/FontLoader.js';
+        import { TextGeometry } from 'three/addons/geometries/TextGeometry.js';
+        import { FilesetResolver, HandLandmarker } from '@mediapipe/tasks-vision';
+        import TWEEN from '@tweenjs/tween.js';
+
+        // --- Configuration ---
+        const CONFIG = {
+            bloomStrength: 1.5,
+            bloomRadius: 0.4,
+            bloomThreshold: 0.1,
+            goldColor: 0xffd700,
+            particleCount: 2000, // Countdown particles
+            cakeInstanceCount: 4000, // Cake particles
+            cameraZ: 30
+        };
+
+        // --- Global State ---
+        const state = {
+            phase: 'loading', // loading, intro, warp, fireworks, main
+            gesture: 'None',
+            photoMode: false,
+            rotationSpeed: 0.001,
+            targetRotation: 0,
+            handX: 0
+        };
+
+        // --- Scene Setup ---
+        const container = document.getElementById('canvas-container');
+        const scene = new THREE.Scene();
+        scene.fog = new THREE.FogExp2(0x000000, 0.02);
+
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.z = CONFIG.cameraZ;
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        renderer.toneMapping = THREE.ReinhardToneMapping;
+        container.appendChild(renderer.domElement);
+
+        // --- Post Processing (Bloom) ---
+        const renderScene = new RenderPass(scene, camera);
+        const bloomPass = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 1.5, 0.4, 0.85);
+        bloomPass.threshold = CONFIG.bloomThreshold;
+        bloomPass.strength = CONFIG.bloomStrength;
+        bloomPass.radius = CONFIG.bloomRadius;
+
+        const composer = new EffectComposer(renderer);
+        composer.addPass(renderScene);
+        composer.addPass(bloomPass);
+
+        // --- Lighting ---
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.2);
+        scene.add(ambientLight);
+        const pointLight = new THREE.PointLight(CONFIG.goldColor, 2, 100);
+        pointLight.position.set(10, 10, 10);
+        scene.add(pointLight);
+
+        // --- Assets & Loaders ---
+        const fontLoader = new FontLoader();
+        const textureLoader = new THREE.TextureLoader();
+        let loadedFont = null;
+
+        // --- Logic: Phase 1 - Intro Particles ---
+        let particleSystem, particleGeo, particleMat;
+        let particlePositions = []; 
+
+        function initIntroParticles() {
+            particleGeo = new THREE.BufferGeometry();
+            const positions = new Float32Array(CONFIG.particleCount * 3);
+            // Initialize randomly
+            for(let i=0; i<CONFIG.particleCount; i++) {
+                positions[i*3] = (Math.random() - 0.5) * 50;
+                positions[i*3+1] = (Math.random() - 0.5) * 50;
+                positions[i*3+2] = (Math.random() - 0.5) * 20;
+            }
+            particleGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+            
+            particleMat = new THREE.PointsMaterial({
+                color: CONFIG.goldColor,
+                size: 0.15,
+                transparent: true,
+                opacity: 0.8,
+                blending: THREE.AdditiveBlending
+            });
+
+            particleSystem = new THREE.Points(particleGeo, particleMat);
+            scene.add(particleSystem);
+        }
+
+        function sampleTextCoordinates(text) {
+            if (!loadedFont) return [];
+            const textGeo = new TextGeometry(text, {
+                font: loadedFont,
+                size: 5,
+                height: 0.5,
+                curveSegments: 4,
+                bevelEnabled: false
+            });
+            textGeo.center();
+            
+            // Sample points from the geometry volume
+            // A simple method: use vertices, but TextGeometry is simple triangles.
+            // Better: Raycast or simple vertex extraction + random jitter.
+            // For performance, we just extract vertices and duplicate some to fill count.
+            
+            textGeo.computeBoundingBox();
+            const positions = textGeo.attributes.position.array;
+            let targets = [];
+            
+            // Just grab vertices. If not enough, loop. If too many, slice.
+            for(let i=0; i<positions.length; i+=3) {
+                targets.push(new THREE.Vector3(positions[i], positions[i+1], positions[i+2]));
+            }
+            return targets;
+        }
+
+        function morphToText(text, duration = 1000) {
+            const targets = sampleTextCoordinates(text);
+            const positions = particleSystem.geometry.attributes.position.array;
+            
+            for(let i=0; i<CONFIG.particleCount; i++) {
+                const targetIndex = i % targets.length;
+                const target = targets[targetIndex];
+                
+                // Add some random jitter so they don't look like a wireframe
+                const tx = target.x + (Math.random() - 0.5) * 0.2;
+                const ty = target.y + (Math.random() - 0.5) * 0.2;
+                const tz = target.z + (Math.random() - 0.5) * 0.2;
+
+                new TWEEN.Tween({x: positions[i*3], y: positions[i*3+1], z: positions[i*3+2]})
+                    .to({x: tx, y: ty, z: tz}, duration)
+                    .easing(TWEEN.Easing.Quadratic.InOut)
+                    .onUpdate((obj) => {
+                        positions[i*3] = obj.x;
+                        positions[i*3+1] = obj.y;
+                        positions[i*3+2] = obj.z;
+                    })
+                    .onComplete(() => {
+                        particleSystem.geometry.attributes.position.needsUpdate = true;
+                    })
+                    .start();
+            }
+        }
+
+        async function runIntroSequence() {
+            state.phase = 'intro';
+            const sequence = ["5", "4", "3", "2", "1", "2026"];
+            
+            for (let i = 0; i < sequence.length; i++) {
+                morphToText(sequence[i], 800);
+                await new Promise(r => setTimeout(r, 1000));
+            }
+            
+            // Warp Speed Effect
+            state.phase = 'warp';
+            
+            // Stretch particles
+            const positions = particleSystem.geometry.attributes.position.array;
+            new TWEEN.Tween(camera.position)
+                .to({z: -10}, 1500) // Rush forward
+                .easing(TWEEN.Easing.Exponential.In)
+                .start();
+
+            // Field of View Warp
+            new TWEEN.Tween(camera)
+                .to({fov: 120}, 1500)
+                .onUpdate(() => camera.updateProjectionMatrix())
+                .start();
+
+            await new Promise(r => setTimeout(r, 1500));
+            
+            // Clean up intro
+            scene.remove(particleSystem);
+            startFireworks();
+        }
+
+        // --- Logic: Phase 2 - Fireworks ---
+        const fireworks = [];
+        
+        class Firework {
+            constructor() {
+                this.mesh = new THREE.Points(
+                    new THREE.BufferGeometry(),
+                    new THREE.PointsMaterial({ size: 0.2, color: Math.random() > 0.5 ? 0xff0000 : 0xffd700, blending: THREE.AdditiveBlending })
+                );
+                this.particles = [];
+                this.velocities = [];
+                this.life = 0;
+                this.exploded = false;
+                
+                // Launch
+                this.pos = new THREE.Vector3((Math.random()-0.5)*20, -15, (Math.random()-0.5)*10);
+                this.vel = new THREE.Vector3((Math.random()-0.5)*0.5, 0.8 + Math.random()*0.4, (Math.random()-0.5)*0.5);
+                
+                // Single point for launch
+                this.updateGeo([this.pos]);
+                scene.add(this.mesh);
+            }
+            
+            updateGeo(points) {
+                const posArr = new Float32Array(points.length * 3);
+                for(let i=0; i<points.length; i++) {
+                    posArr[i*3] = points[i].x;
+                    posArr[i*3+1] = points[i].y;
+                    posArr[i*3+2] = points[i].z;
+                }
+                this.mesh.geometry.setAttribute('position', new THREE.BufferAttribute(posArr, 3));
+            }
+            
+            update() {
+                if(!this.exploded) {
+                    this.pos.add(this.vel);
+                    this.vel.y -= 0.015; // Gravity
+                    this.updateGeo([this.pos]);
+                    
+                    if(this.vel.y <= 0) {
+                        this.explode();
+                    }
+                } else {
+                    this.life += 0.02;
+                    const positions = [];
+                    for(let i=0; i<this.particles.length; i++) {
+                        this.particles[i].add(this.velocities[i]);
+                        this.velocities[i].y -= 0.005; // Gravity
+                        this.velocities[i].multiplyScalar(0.98); // Drag
+                        positions.push(this.particles[i]);
+                    }
+                    this.updateGeo(positions);
+                    this.mesh.material.opacity = 1 - this.life;
+                }
+                return this.life < 1;
+            }
+            
+            explode() {
+                this.exploded = true;
+                const count = 100;
+                for(let i=0; i<count; i++) {
+                    this.particles.push(this.pos.clone());
+                    const v = new THREE.Vector3(Math.random()-0.5, Math.random()-0.5, Math.random()-0.5).normalize().multiplyScalar(0.3);
+                    this.velocities.push(v);
+                }
+            }
+        }
+
+        function startFireworks() {
+            state.phase = 'fireworks';
+            // Reset Camera
+            camera.fov = 75;
+            camera.position.set(0, 0, 40);
+            camera.lookAt(0,0,0);
+            camera.updateProjectionMatrix();
+
+            let fwCount = 0;
+            const fwInterval = setInterval(() => {
+                fireworks.push(new Firework());
+                fwCount++;
+                if(fwCount > 5) {
+                    clearInterval(fwInterval);
+                    setTimeout(initMainScene, 2000);
+                }
+            }, 600);
+        }
+
+        // --- Logic: Phase 3 - Main Scene (The Cake) ---
+        let cakeMesh;
+        const dummy = new THREE.Object3D();
+        const cakeMatrices = [];
+        const cloudMatrices = [];
+        let currentMatrices = []; // What is currently rendered
+
+        function initMainScene() {
+            state.phase = 'main';
+            document.getElementById('instructions').style.opacity = '1';
+            document.getElementById('camera-preview').style.opacity = '1';
+
+            // Geometries for instances
+            const geom = new THREE.IcosahedronGeometry(0.2, 0);
+            const material = new THREE.MeshPhysicalMaterial({
+                color: CONFIG.goldColor,
+                metalness: 0.9,
+                roughness: 0.2,
+                emissive: 0x442200,
+                emissiveIntensity: 0.2
+            });
+
+            cakeMesh = new THREE.InstancedMesh(geom, material, CONFIG.cakeInstanceCount);
+            
+            // Calculate Shapes
+            // 1. Cake Shape (3 Tiers)
+            let idx = 0;
+            // Tier 1 (Base)
+            idx = createCylinderLayer(idx, 8, 3, 0); 
+            // Tier 2
+            idx = createCylinderLayer(idx, 5, 3, 3);
+            // Tier 3
+            idx = createCylinderLayer(idx, 2.5, 3, 6);
+            
+            // Fill remainder with scattered particles if any
+            while(idx < CONFIG.cakeInstanceCount) {
+                 dummy.position.set(0, -1000, 0);
+                 dummy.updateMatrix();
+                 cakeMesh.setMatrixAt(idx, dummy.matrix);
+                 cakeMatrices.push(dummy.matrix.clone());
+                 idx++;
+            }
+
+            // 2. Cloud/Sphere Shape (Explosion)
+            for(let i=0; i<CONFIG.cakeInstanceCount; i++) {
+                const r = 15 * Math.cbrt(Math.random()); // Even volume distribution
+                const theta = Math.random() * Math.PI * 2;
+                const phi = Math.acos(2 * Math.random() - 1);
+                
+                dummy.position.set(
+                    r * Math.sin(phi) * Math.cos(theta),
+                    r * Math.sin(phi) * Math.sin(theta),
+                    r * Math.cos(phi)
+                );
+                dummy.rotation.set(Math.random()*Math.PI, Math.random()*Math.PI, 0);
+                dummy.scale.setScalar(Math.random() * 0.5 + 0.5);
+                dummy.updateMatrix();
+                cloudMatrices.push(dummy.matrix.clone());
+            }
+
+            // Initial State: Set to Cake
+            for(let i=0; i<CONFIG.cakeInstanceCount; i++) {
+                cakeMesh.setMatrixAt(i, cakeMatrices[i]);
+            }
+            
+            scene.add(cakeMesh);
+
+            // Add Text "2026 祝你开心"
+            const textGeo = new TextGeometry("2026 祝你开心", {
+                font: loadedFont,
+                size: 2,
+                height: 0.2,
+            });
+            textGeo.center();
+            const textMesh = new THREE.Mesh(textGeo, new THREE.MeshBasicMaterial({ color: 0xffffff }));
+            textMesh.position.y = 10;
+            scene.add(textMesh);
+            
+            // Add Gold Dust
+            const dustGeo = new THREE.BufferGeometry();
+            const dustPos = [];
+            for(let i=0; i<1000; i++) {
+                dustPos.push((Math.random()-0.5)*60, (Math.random()-0.5)*60, (Math.random()-0.5)*60);
+            }
+            dustGeo.setAttribute('position', new THREE.Float32BufferAttribute(dustPos, 3));
+            const dustMat = new THREE.PointsMaterial({color: 0xffaa00, size: 0.1, transparent: true, opacity: 0.6});
+            const dust = new THREE.Points(dustGeo, dustMat);
+            scene.add(dust);
+
+            // Intro transition for main scene
+            cakeMesh.scale.set(0,0,0);
+            new TWEEN.Tween(cakeMesh.scale).to({x:1, y:1, z:1}, 1500).easing(TWEEN.Easing.Elastic.Out).start();
+        }
+
+        function createCylinderLayer(startIndex, radius, height, yOffset) {
+            const count = Math.floor(CONFIG.cakeInstanceCount / 3);
+            let idx = startIndex;
+            const stopIdx = Math.min(startIndex + count, CONFIG.cakeInstanceCount);
+            
+            for (; idx < stopIdx; idx++) {
+                const angle = Math.random() * Math.PI * 2;
+                const r = Math.sqrt(Math.random()) * radius; // Uniform disk
+                const h = Math.random() * height;
+                
+                dummy.position.set(
+                    r * Math.cos(angle),
+                    h + yOffset - (height/2), // Center pivot
+                    r * Math.sin(angle)
+                );
+                
+                dummy.rotation.set(0, angle, 0); // Align outward
+                dummy.scale.setScalar(Math.random() * 0.8 + 0.2);
+                
+                dummy.updateMatrix();
+                cakeMesh.setMatrixAt(idx, dummy.matrix);
+                cakeMatrices[idx] = dummy.matrix.clone(); // Store target
+            }
+            return idx;
+        }
+
+        // --- Hand Gesture & Animation Logic ---
+        let morphFactor = 0; // 0 = Cake, 1 = Cloud
+
+        function updateMainScene() {
+            // Smooth Rotation
+            if (state.gesture === 'Open_Palm') {
+                 // Rotate based on hand position
+                 cakeMesh.rotation.y += (state.handX - 0.5) * 0.1;
+            } else {
+                 cakeMesh.rotation.y += 0.002; // Idle rotation
+            }
+
+            // Morphing Logic
+            let targetFactor = 0;
+            if (state.gesture === 'Open_Palm') targetFactor = 1;
+            else if (state.gesture === 'Closed_Fist') targetFactor = 0;
+            // Pinch handled separately for Camera Zoom
+            
+            // Smoothly interpolate factor
+            morphFactor += (targetFactor - morphFactor) * 0.05;
+
+            // Update InstancedMesh matrices if morphing is happening
+            if (Math.abs(targetFactor - morphFactor) > 0.001) {
+                for (let i = 0; i < CONFIG.cakeInstanceCount; i++) {
+                    // Extract position/rot/scale from matrix is hard, 
+                    // simpler is to lerp positions. 
+                    // However, matrices are 4x4. We can decompose, lerp, recomp.
+                    
+                    const m1 = cakeMatrices[i]; // Start (Cake)
+                    const m2 = cloudMatrices[i]; // End (Cloud)
+                    
+                    if (!m1 || !m2) continue;
+
+                    // Manual Matrix Lerp (Simplified for performance)
+                    // We just Lerp the elements directly (not mathematically perfect for rotation, but visually fine for particles)
+                    for(let j=0; j<16; j++) {
+                        dummy.matrix.elements[j] = m1.elements[j] * (1 - morphFactor) + m2.elements[j] * morphFactor;
+                    }
+                    
+                    cakeMesh.setMatrixAt(i, dummy.matrix);
+                }
+                cakeMesh.instanceMatrix.needsUpdate = true;
+            }
+
+            // Pinch Logic (Zoom)
+            if (state.gesture === 'Victory' || state.gesture === 'Pointing_Up') { 
+                // Using 'Victory' or Pointing as proxy for pinch in simple recognizer
+                // Or if handLandmarker detects actual Pinch
+                if (userPhotos.length > 0) {
+                     // Focus on first photo
+                     const photoPos = userPhotos[0].position;
+                     camera.position.lerp(new THREE.Vector3(photoPos.x, photoPos.y, photoPos.z + 5), 0.05);
+                     camera.lookAt(photoPos);
+                }
+            } else {
+                // Return to center
+                const targetPos = new THREE.Vector3(0, 5, 40);
+                camera.position.lerp(targetPos, 0.05);
+                camera.lookAt(0, 5, 0);
+            }
+        }
+
+
+        // --- User Photo Upload ---
+        const userPhotos = [];
+        document.getElementById('file-input').addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if(!file) return;
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                const img = new Image();
+                img.src = event.target.result;
+                img.onload = () => {
+                    const tex = new THREE.Texture(img);
+                    tex.needsUpdate = true;
+                    
+                    // Create Frame
+                    const frameGeo = new THREE.BoxGeometry(4.2, 3.2, 0.2);
+                    const frameMat = new THREE.MeshStandardMaterial({color: CONFIG.goldColor, metalness: 1, roughness: 0.1});
+                    const frame = new THREE.Mesh(frameGeo, frameMat);
+                    
+                    // Create Photo
+                    const planeGeo = new THREE.PlaneGeometry(4, 3);
+                    const planeMat = new THREE.MeshBasicMaterial({map: tex});
+                    const plane = new THREE.Mesh(planeGeo, planeMat);
+                    plane.position.z = 0.11;
+                    frame.add(plane);
+                    
+                    // Add to scene at random pos inside the "Cake" area
+                    frame.position.set((Math.random()-0.5)*10, Math.random()*10, (Math.random()-0.5)*10);
+                    scene.add(frame);
+                    userPhotos.push(frame);
+                    
+                    // Add to particle systems targets so it flows? 
+                    // For now, just a physical object floating
+                };
+            };
+            reader.readAsDataURL(file);
+        });
+
+        // --- MediaPipe Implementation ---
+        let handLandmarker = undefined;
+        let runningMode = "VIDEO";
+        const video = document.getElementById("webcam");
+        const debugText = document.getElementById("gesture-debug");
+
+        async function createHandLandmarker() {
+            const vision = await FilesetResolver.forVisionTasks(
+                "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.3/wasm"
+            );
+            handLandmarker = await HandLandmarker.createFromOptions(vision, {
+                baseOptions: {
+                    modelAssetPath: `https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task`,
+                    delegate: "GPU"
+                },
+                runningMode: runningMode,
+                numHands: 1
+            });
+            startWebcam();
+        }
+
+        function startWebcam() {
+            if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+                navigator.mediaDevices.getUserMedia({ video: true }).then((stream) => {
+                    video.srcObject = stream;
+                    video.addEventListener("loadeddata", predictWebcam);
+                    // Hide loader when webcam starts (meaning almost ready)
+                    document.getElementById('loader').style.opacity = '0';
+                    setTimeout(() => { 
+                        document.getElementById('loader').style.display = 'none'; 
+                        initIntroParticles();
+                        runIntroSequence();
+                    }, 1000);
+                });
+            }
+        }
+
+        let lastVideoTime = -1;
+        async function predictWebcam() {
+            if (handLandmarker && video.currentTime !== lastVideoTime) {
+                lastVideoTime = video.currentTime;
+                const startTimeMs = performance.now();
+                const result = handLandmarker.detectForVideo(video, startTimeMs);
+
+                processGesture(result);
+            }
+            requestAnimationFrame(predictWebcam);
+        }
+
+        function processGesture(result) {
+            const canvasCtx = document.getElementById('output_canvas').getContext('2d');
+            canvasCtx.clearRect(0, 0, 160, 120);
+
+            if (result.landmarks && result.landmarks.length > 0) {
+                // Simple Gesture Recognition Logic
+                const landmarks = result.landmarks[0]; // First hand
+                
+                // Draw skeleton (Debug)
+                drawSkeleton(canvasCtx, landmarks);
+
+                // 1. Detect Fist vs Open
+                // Measure distance between wrist (0) and finger tips (8, 12, 16, 20)
+                const wrist = landmarks[0];
+                const tips = [8, 12, 16, 20];
+                let avgDist = 0;
+                tips.forEach(idx => {
+                    const d = Math.hypot(landmarks[idx].x - wrist.x, landmarks[idx].y - wrist.y);
+                    avgDist += d;
+                });
+                avgDist /= 4;
+
+                // 2. Detect Pinch (Thumb tip 4 vs Index tip 8)
+                const pinchDist = Math.hypot(landmarks[4].x - landmarks[8].x, landmarks[4].y - landmarks[8].y);
+
+                // Update State
+                if (pinchDist < 0.05) {
+                    state.gesture = "Pinch";
+                } else if (avgDist < 0.25) { // Threshold for fist depends on camera distance
+                    state.gesture = "Closed_Fist";
+                } else if (avgDist > 0.4) {
+                    state.gesture = "Open_Palm";
+                } else {
+                    state.gesture = "Neutral";
+                }
+
+                // Update Hand Position for Rotation
+                state.handX = wrist.x; // 0 to 1
+                
+                debugText.innerText = `Gesture: ${state.gesture}`;
+            } else {
+                state.gesture = "None";
+                debugText.innerText = "No Hand";
+            }
+        }
+
+        function drawSkeleton(ctx, landmarks) {
+            ctx.strokeStyle = '#00FF00';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            // Connections... simplified
+            const connections = [[0,1],[1,2],[2,3],[3,4], [0,5],[5,6],[6,7],[7,8], [0,17],[17,18],[18,19],[19,20]];
+            connections.forEach(pair => {
+                const p1 = landmarks[pair[0]];
+                const p2 = landmarks[pair[1]];
+                ctx.moveTo(p1.x * 160, p1.y * 120);
+                ctx.lineTo(p2.x * 160, p2.y * 120);
+            });
+            ctx.stroke();
+        }
+
+        // --- Main Loop ---
+        const clock = new THREE.Clock();
+
+        function animate() {
+            requestAnimationFrame(animate);
+            TWEEN.update();
+
+            const delta = clock.getDelta();
+
+            // Phase Logic
+            if (state.phase === 'intro') {
+                particleSystem.rotation.y += 0.005;
+            } else if (state.phase === 'fireworks') {
+                for (let i = fireworks.length - 1; i >= 0; i--) {
+                    if (fireworks[i].update()) {
+                        // Could remove, but keeping for trails fade out
+                    }
+                }
+            } else if (state.phase === 'main') {
+                updateMainScene();
+            }
+
+            composer.render();
+        }
+
+        // --- Initialization ---
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            composer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        // Load Font First
+        const progressBar = document.getElementById('progress');
+        fontLoader.load('https://unpkg.com/three@0.160.0/examples/fonts/helvetiker_bold.typeface.json', (font) => {
+            loadedFont = font;
+            progressBar.style.width = '50%';
+            // Start MediaPipe initialization
+            createHandLandmarker();
+        });
+
+        animate();
+
+    </script>
+</body>
+</html>
