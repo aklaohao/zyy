@@ -36,6 +36,10 @@
             cursor: pointer; backdrop-filter: blur(4px); transition: 0.3s;
         }
         .icon-btn:hover { background: rgba(255,215,0,0.2); box-shadow: 0 0 15px rgba(255,215,0,0.3); }
+        
+        /* 音乐按钮播放时的动画 */
+        .music-playing { animation: spin 4s linear infinite; border-color: #00ff00 !important; color: #00ff00 !important; }
+        @keyframes spin { 100% { transform: rotate(360deg); } }
 
         #video-container {
             position: absolute; top: 80px; right: 20px; z-index: 100; 
@@ -126,8 +130,8 @@
     <div id="canvas-wrapper">
         <div id="canvas-container"></div>
         
-        <audio id="bgm" loop preload="auto">
-            <source src="bgm.mp3" type="audio/mp3">
+        <audio id="bgm" loop preload="auto" style="display:none">
+            <source src="music.mp3" type="audio/mp3">
         </audio>
 
         <div id="controls" style="display:none;">
@@ -216,19 +220,26 @@
         let isHandPresent = false;
         let rotationVelocity = { x: 0, y: 0 };
 
-        // Music & Fullscreen
+        // --- 音乐控制逻辑 ---
         const bgm = document.getElementById('bgm');
         
+        // 尝试微信兼容
+        document.addEventListener("WeixinJSBridgeReady", function () {
+            bgm.load();
+        }, false);
+
         window.toggleMusic = function() {
+            const btn = document.getElementById('music-btn');
             if (bgm.paused) {
                 bgm.play().then(() => {
-                    document.getElementById('music-btn').style.color = '#00ff00';
-                    document.getElementById('music-btn').style.borderColor = '#00ff00';
+                    btn.classList.add('music-playing');
+                    btn.innerHTML = '♫';
                 }).catch(e => console.log("Audio play failed", e));
             } else {
                 bgm.pause();
-                document.getElementById('music-btn').style.color = '#ffd700';
-                document.getElementById('music-btn').style.borderColor = 'rgba(255, 215, 0, 0.5)';
+                btn.classList.remove('music-playing');
+                btn.style.borderColor = 'rgba(255, 215, 0, 0.5)';
+                btn.style.color = '#ffd700';
             }
         };
 
@@ -384,7 +395,6 @@
             }
         }
 
-        // 新增：自动加载本地照片函数
         function loadLocalPhotos() {
             const photoCount = 6;
             const path = './images/';
@@ -488,15 +498,16 @@
         }
 
         window.startExperience = function() {
+            // 播放音乐
+            bgm.volume = 0.6; // 设置音量 60%
+            bgm.play().then(() => {
+                const btn = document.getElementById('music-btn');
+                btn.classList.add('music-playing');
+            }).catch(e => console.log("Autoplay prevented, will play on interact", e));
+
             document.getElementById('start-screen').style.opacity = 0;
             setTimeout(() => { document.getElementById('start-screen').style.display = 'none'; }, 1200);
             
-            bgm.volume = 0.5;
-            bgm.play().then(() => {
-                document.getElementById('music-btn').style.color = '#00ff00';
-                document.getElementById('music-btn').style.borderColor = '#00ff00';
-            }).catch(() => {});
-
             introTimelineStep = 1; applyTargets("5"); introTimer = Date.now();
         };
 
