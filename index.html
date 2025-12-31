@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>2026 Golden Splendor - Soft Glow</title>
+    <title>赵奕奕 - 生日快乐 & 2026</title>
     <style>
         body { 
             margin: 0; 
@@ -59,28 +59,11 @@
             color: #fff; text-shadow: 0 0 10px rgba(255, 215, 0, 0.8);
             transition: opacity 0.5s; display: none;
         }
-        
-        #cake-upload-btn {
-            pointer-events: auto;
-            margin-top: 15px;
-            background: rgba(255, 215, 0, 0.15); 
-            border: 1px solid rgba(255, 215, 0, 0.6); 
-            color: #ffd700; 
-            padding: 8px 20px; 
-            cursor: pointer; 
-            font-weight: bold;
-            font-size: 0.9rem; 
-            border-radius: 20px; 
-            backdrop-filter: blur(5px);
-            transition: 0.3s;
-            display: inline-block;
-        }
-        #cake-upload-btn:hover { background: rgba(255, 215, 0, 0.4); color: #fff; }
 
         .force-hide { opacity: 0 !important; pointer-events: none !important; }
 
         h1 {
-            font-weight: 300; letter-spacing: 4px; font-size: 2.5rem; margin: 0 0 15px 0;
+            font-weight: 300; letter-spacing: 2px; font-size: 2.2rem; margin: 0 0 15px 0;
             background: linear-gradient(to bottom, #fff 30%, #ffd700 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent;
             filter: drop-shadow(0 0 20px rgba(255,215,0,0.5));
         }
@@ -116,20 +99,11 @@
         }
         #start-btn:hover { transform: scale(1.05); box-shadow: 0 0 0 6px rgba(255, 215, 0, 0.4), 0 20px 70px rgba(255, 215, 0, 0.9); }
 
-        #upload-btn {
-            display: none; pointer-events: auto; background: rgba(255, 215, 0, 0.1); 
-            border: 1px solid rgba(255, 215, 0, 0.5); color: #ffd700; padding: 12px 30px; cursor: pointer; font-weight: bold;
-            font-size: 1rem; transition: 0.3s; border-radius: 50px; backdrop-filter: blur(5px);
-            text-transform: uppercase; letter-spacing: 2px;
-        }
-        #upload-btn:hover { background: rgba(255, 215, 0, 0.3); color: #fff; box-shadow: 0 0 15px rgba(255,215,0,0.4); }
-        #file-input { display: none; }
-
         #loading-text { color: #ffd700; font-size: 1.2rem; letter-spacing: 3px; animation: pulse 1s infinite alternate; }
         @keyframes pulse { from { opacity: 0.5; } to { opacity: 1; text-shadow: 0 0 20px #ffd700; } }
 
         @media screen and (max-width: 768px) {
-            h1 { font-size: 1.8rem; letter-spacing: 2px; }
+            h1 { font-size: 1.6rem; letter-spacing: 1px; }
             #ui-layer { top: 20px; left: 20px; width: calc(100% - 40px); }
             .instructions { font-size: 0.85rem; padding: 10px; max-width: none; width: 100%; box-sizing: border-box;}
             #video-container { top: auto; bottom: 20px; right: 20px; width: 100px; height: 75px; }
@@ -153,7 +127,7 @@
         <div id="canvas-container"></div>
         
         <audio id="bgm" loop preload="auto">
-            <source src="" type="audio/mp3">
+            <source src="bgm.mp3" type="audio/mp3">
         </audio>
 
         <div id="controls" style="display:none;">
@@ -162,12 +136,10 @@
         </div>
 
         <div id="start-screen">
-            <div id="loading-text">资源预加载中 (0%)...</div>
+            <div id="loading-text">正在准备生日惊喜 (0%)...</div>
             <div class="start-controls">
-                <button id="start-btn" onclick="startExperience()">开启 2026</button>
-                <button id="upload-btn" onclick="document.getElementById('file-input').click()">上传照片</button>
+                <button id="start-btn" onclick="startExperience()">开启礼物</button>
             </div>
-            <input type="file" id="file-input" multiple accept="image/*">
         </div>
 
         <div id="video-container" onclick="toggleVideoSize()">
@@ -176,7 +148,7 @@
         </div>
 
         <div id="ui-layer">
-            <h1>2026 Golden Splendor</h1>
+            <h1>Happy Birthday & 2026</h1>
             <div id="status-text">系统就绪，请伸手</div>
             <div class="instructions">
                 • <span class="highlight">握拳</span> : 聚合成蛋糕<br/>
@@ -184,9 +156,6 @@
                 • <span class="highlight">向右挥动</span> : 旋转视角<br/>
                 • <span class="highlight">捏合手指</span> : 抓取查看照片
             </div>
-            <button id="cake-upload-btn" onclick="document.getElementById('file-input').click()">+ 添加照片</button>
-            <button id="cake-upload-btn" onclick="window.location.href='https://dz.2cy.ink/'">联系定制</button>
-            <button id="cake-upload-btn" onclick="window.location.href='https://wendatu.cn/'">AI创作</button>
         </div>
     </div>
 
@@ -368,17 +337,15 @@
                 scene.environment = pmremGenerator.fromScene(new RoomEnvironment(), 0.04).texture;
 
                 scene.add(new THREE.AmbientLight(0xffffff, 0.4));
-                // 降低主光强度
                 const mainSpot = new THREE.SpotLight(0xffaa00, 250); 
                 mainSpot.position.set(50, 80, 50); mainSpot.penumbra = 0.5; scene.add(mainSpot);
                 const fillLight = new THREE.PointLight(0xffd700, 80, 200);
                 fillLight.position.set(-50, 20, 50); scene.add(fillLight);
 
                 const renderScene = new RenderPass(scene, camera);
-                // 调整 Bloom 参数：降低强度，提高阈值（hcc的原创代码 请勿侵权或随意传播 定制联系qq840473750）
                 const bloomPass = new UnrealBloomPass(new THREE.Vector2(dims.width, dims.height), 1.5, 0.4, 0.85);
-                bloomPass.threshold = 0.85; // 提高阈值，只让很亮的地方发光
-                bloomPass.strength = 0.8;   // 降低强度，柔和光效
+                bloomPass.threshold = 0.85; 
+                bloomPass.strength = 0.8;
                 bloomPass.radius = 0.5;     
 
                 composer = new EffectComposer(renderer);
@@ -393,6 +360,9 @@
                 
                 mainGroup.visible = false; 
 
+                // 预加载本地照片
+                loadLocalPhotos();
+
                 createIntroSystem();
 
                 const loader = new FontLoader();
@@ -401,7 +371,6 @@
                     await preCalculateTargets(); 
                     document.getElementById('loading-text').style.display = 'none';
                     document.getElementById('start-btn').style.display = 'inline-block';
-                    document.getElementById('upload-btn').style.display = 'inline-block';
                 }, undefined, function(err) {
                     console.error("字体加载失败", err);
                     document.getElementById('loading-text').innerText = "资源加载失败，请刷新重试";
@@ -415,6 +384,23 @@
             }
         }
 
+        // 新增：自动加载本地照片函数
+        function loadLocalPhotos() {
+            const photoCount = 6;
+            const path = './images/';
+            
+            for(let i=1; i<=photoCount; i++) {
+                const img = new Image();
+                img.src = `${path}${i}.jpg`; // 假设文件名为 1.jpg, 2.jpg...
+                img.onload = () => {
+                    addPhotoMesh(img);
+                };
+                img.onerror = () => {
+                    console.warn(`未找到图片: ${path}${i}.jpg，请确保 images 文件夹下有 1.jpg 到 6.jpg`);
+                };
+            }
+        }
+
         async function preCalculateTargets() {
             const loading = document.getElementById('loading-text');
             const texts = ["5", "4", "3", "2", "1", "2026"];
@@ -424,7 +410,7 @@
             const sizes = [45, 45, 45, 45, 45, yearSize];
             
             for(let i=0; i<texts.length; i++) {
-                loading.innerText = `资源预加载中 (${Math.floor((i/texts.length)*100)}%)...`;
+                loading.innerText = `准备生日惊喜中 (${Math.floor((i/texts.length)*100)}%)...`;
                 await new Promise(resolve => setTimeout(resolve, 10));
                 cachedTextTargets[texts[i]] = generateTextTargets(texts[i], sizes[i], 10);
             }
@@ -647,18 +633,20 @@
             textCanvas.width = 2048; textCanvas.height = 512;
             const ctx = textCanvas.getContext('2d');
             ctx.clearRect(0, 0, 2048, 512);
-            ctx.font = '900 200px "Microsoft YaHei", sans-serif'; 
+            ctx.font = '900 180px "Microsoft YaHei", sans-serif'; 
             ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
             
+            const message = '赵奕奕 生日快乐';
+
             ctx.strokeStyle = 'rgba(255, 180, 0, 0.9)'; ctx.lineWidth = 6;
             ctx.shadowColor = '#ffaa00'; ctx.shadowBlur = 40; 
-            ctx.strokeText('2026 祝你开心', 1024, 256);
+            ctx.strokeText(message, 1024, 256);
 
             const gradient = ctx.createLinearGradient(0, 100, 0, 400);
             gradient.addColorStop(0, '#ffffff'); gradient.addColorStop(0.3, '#ffd700');
             gradient.addColorStop(0.7, '#ff8c00'); gradient.addColorStop(1, '#8b4500');
             ctx.fillStyle = gradient; ctx.shadowBlur = 0; 
-            ctx.fillText('2026 祝你开心', 1024, 256);
+            ctx.fillText(message, 1024, 256);
             
             const textTex = new THREE.CanvasTexture(textCanvas);
             textTex.colorSpace = THREE.SRGBColorSpace;
@@ -695,7 +683,6 @@
         }
 
         function createMaterialsAndMeshes() {
-            // 降低自发光强度，配合 Bloom 调整（hcc的原创代码 请勿侵权或随意传播 定制联系qq840473750）
             const goldMat = new THREE.MeshPhysicalMaterial({ color: 0xffcc00, metalness: 1.0, roughness: 0.1, clearcoat: 1.0, emissive: 0xffaa00, emissiveIntensity: 0.8 });
             const silverMat = new THREE.MeshPhysicalMaterial({ color: 0xffffff, metalness: 0.3, roughness: 0.1, transmission: 0.2, emissive: 0x444444, emissiveIntensity: 0.2 }); 
             const gemMat = new THREE.MeshPhysicalMaterial({ color: 0xff0044, metalness: 0.1, roughness: 0.0, transmission: 0.8, thickness: 2.0, emissive: 0xaa0022, emissiveIntensity: 0.8 }); 
@@ -807,7 +794,6 @@
                         const deltaX = handPos.x - lastHandPos.x;
                         const deltaY = handPos.y - lastHandPos.y;
                         
-                        // 只允许向右滑动（hcc的原创代码 请勿侵权或随意传播 定制联系qq840473750）
                         if (deltaX > 0.001) rotationVelocity.y += deltaX * 0.2; 
                         if (Math.abs(deltaY) > 0.001) rotationVelocity.x += deltaY * 0.08; 
                         lastHandPos.x = handPos.x; lastHandPos.y = handPos.y;
@@ -1017,7 +1003,7 @@
             if (isPinch && currentState === STATE.SCATTER) {
                 if (photoMeshes.length > 0) {
                     targetState = STATE.ZOOM; currentState = STATE.ZOOM;
-                    status.innerHTML = "状态: <span style='color:#ffd700'>抓取照片</span>";
+                    status.innerHTML = "状态: <span style='color:#ffd700'>查看照片</span>";
                     if (zoomTargetIndex === -1 && photoMeshes.length > 0) {
                         let minDist = Infinity; let bestIdx = 0;
                         const camPos = camera.position; const worldPos = new THREE.Vector3();
@@ -1028,7 +1014,7 @@
                         });
                         zoomTargetIndex = bestIdx;
                     }
-                } else { status.innerHTML = "状态: <span style='color:#aaa'>请先上传照片</span>"; }
+                }
             } else if (isFist) {
                 currentState = STATE.TREE; 
                 zoomTargetIndex = -1; 
@@ -1065,22 +1051,6 @@
                     try { await globalVideo.play(); } catch (e) { startCamera(); }
                 }
             }
-        });
-
-        document.getElementById('file-input').addEventListener('change', function(e) {
-            setTimeout(() => { startCamera(); }, 600);
-            const files = e.target.files;
-            if (!files.length) return;
-            for(let i=0; i<files.length; i++) {
-                const reader = new FileReader();
-                reader.onload = function(evt) {
-                    const img = new Image();
-                    img.src = evt.target.result;
-                    img.onload = () => { addPhotoMesh(img); }
-                }
-                reader.readAsDataURL(files[i]);
-            }
-            alert(`已添加 ${files.length} 张照片`);
         });
 
         function addPhotoMesh(img) {
